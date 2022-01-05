@@ -1,0 +1,272 @@
+%!TEX TS-program = xelatex
+%!TEX encoding = UTF-8 Unicode
+\documentclass[reqno ,11pt]{amsart}
+\usepackage[foot]{amsaddr}
+\usepackage{graphicx}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage[paperwidth=7in,paperheight=10in,text={5in,8in},left=1in,top=1in,headheight=0.25in,headsep=0.4in,footskip=0.4in]{geometry}
+\usepackage{natbib}
+\usepackage{subfigure}
+\usepackage{lineno}
+\usepackage{pdflscape}
+\usepackage{afterpage}
+\bibpunct[, ]{(}{)}{,}{a}{}{,}
+\DeclareMathOperator{\var}{var}
+\DeclareMathOperator{\cov}{cov}
+\DeclareMathOperator{\E}{E}
+
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usetikzlibrary{arrows.meta}
+\usepackage{extarrows} 
+
+\synctex=1
+
+\newcommand*\patchAmsMathEnvironmentForLineno[1]{%
+  \expandafter\let\csname old#1\expandafter\endcsname\csname #1\endcsname
+  \expandafter\let\csname oldend#1\expandafter\endcsname\csname end#1\endcsname
+  \renewenvironment{#1}%
+     {\linenomath\csname old#1\endcsname}%
+     {\csname oldend#1\endcsname\endlinenomath}}% 
+\newcommand*\patchBothAmsMathEnvironmentsForLineno[1]{%
+  \patchAmsMathEnvironmentForLineno{#1}%
+  \patchAmsMathEnvironmentForLineno{#1*}}%
+\AtBeginDocument{%
+\patchBothAmsMathEnvironmentsForLineno{equation}%
+\patchBothAmsMathEnvironmentsForLineno{align}%
+\patchBothAmsMathEnvironmentsForLineno{flalign}%
+\patchBothAmsMathEnvironmentsForLineno{alignat}%
+\patchBothAmsMathEnvironmentsForLineno{gather}%
+\patchBothAmsMathEnvironmentsForLineno{multline}%
+}
+
+%\usepackage{lmodern}
+%\usepackage{unicode-math}
+\usepackage{mathspec}
+\usepackage{xltxtra}
+\usepackage{xunicode}
+\defaultfontfeatures{Mapping=tex-text}
+\setmainfont[Scale=1,Ligatures={Common}]{Adobe Caslon Pro}
+\setromanfont[Scale=1,Ligatures={Common}]{Adobe Caslon Pro}
+\setmathrm[Scale=1]{Adobe Caslon Pro}
+\setmathfont(Digits,Latin)[Numbers={Lining,Proportional}]{Adobe Caslon Pro}
+
+\definecolor{linenocolor}{gray}{0.6}
+\definecolor{prec}{RGB}{42,115,205}
+\definecolor{sens}{RGB}{255,112,0}
+\definecolor{spec}{gray}{0.4}
+\renewcommand\thelinenumber{\color{linenocolor}\arabic{linenumber}}
+
+\usepackage{fix-cm}
+
+\setcounter{totalnumber}{1}
+
+\newcommand{\mr}{\mathrm}
+\newcommand{\prim}{{\;\prime}}
+
+\renewcommand{\baselinestretch}{1.0}
+
+\newcommand{\hatr}[2]{\mkern+#1mu \hat{\mkern-#1mu #2}}
+
+% code for adding space to superscripts in mathmode (helps with Caslon typeface tilt)
+\newcommand{\upsup}[1]{\sp{\,#1}}
+\begingroup\lccode`~=`^\lowercase{\endgroup\let~\upsup}
+\AtBeginDocument{%
+  \catcode`^=12
+  \mathcode`^="8000
+}
+
+
+
+\begin{document}
+
+\title[Brains, Vocal Behavior and Missing Data]{\large Brains, Vocal Behavior and Missing Data}
+\author{Richard McElreath}
+\address{Department of Human Behavior, Ecology and Culture, Max Planck Institute for Evolutionary Anthropology, Deutscher Platz 6, 04103 Leipzig, Germany}
+\email{richard\_mcelreath@eva.mpg.de}
+\date{\today}
+
+%{\abstract \small x }
+
+\maketitle
+
+%{\vspace{-6pt}\footnotesize\begin{center}\today\end{center}\vspace{24pt}}
+
+\linenumbers
+\modulolinenumbers[5]
+
+\section{Purpose}
+
+Brain structure changes with age and varies by sex and population. Vocal behavior also changes with age and varies by sex and population. Under the hypothesis that brain structure influences vocal behavior, we need to estimate any causal influence of brain structure while controlling for unobserved confounds associated with age and sex and population. For example, if brain structure and vocal behavior both are influenced by other age-related factors, then structure will be associated with vocal behavior, but the relationship may not be causal. 
+
+The problem is made more complex by the existence of extensive missing data. In the expected sample, there is extensive vocal data but much less brain structure data. A robust solution that allows the use of all data will require a strategy for the imputation of missing values.
+
+\section{Strategy}
+
+\subsection{Concept}
+
+We begin by specifying the heuristic causal model of the system, in order to clarify the general conditions under which a causal estimate is possible. This is also sufficient to remind us why experiments were invented.
+
+\begin{center}
+\begin{tikzpicture}
+  % nodes %
+  \node[text centered] (a) {$A$};
+  \node[above right=1.2 of a, text centered] (b) {$B$};
+  \node[below right=1.2 of a, text centered] (v) {$V$};
+  \node[below right=1.2 of b, text centered] (s) {$S$};
+  % edges %
+  \draw[-Latex, line width= 1] (a) -- (v);
+  \draw[-Latex, line width= 1] (b) -- (v);
+  \draw[-Latex, line width= 1] (a) -- (b);
+  \draw[-Latex, line width= 1] (s) -- (b);
+  \draw[-Latex, line width= 1] (s) -- (v);
+  \path[Latex-Latex,dashed] (a) edge[bend left=30] (b);
+  \path[Latex-Latex,dashed] (a) edge[bend right=30] (v);
+  \path[Latex-Latex,dashed] (b) edge[bend left=25] (v);
+\end{tikzpicture}
+\end{center}
+In this diagram, each letter is an observable variable: Age (A), Sex (S), Brain structure (B), and Vocal behavior (V). The arrows represent causal relationships. The dashed paths represent unobserved confounds. The directed arrow $B \rightarrow V$ is what we want to estimate. 
+
+\subsection{Inference}
+
+Using knowledge of d-separation and the backdoor criterion of do-calculus, we can derive the general conditions under which inference of the causal effect of $B$ on $V$ is possible.
+
+First notice that there are backdoor paths through $A$ and $S$. Stratification by $A$ and $S$ is sufficient to block these paths. So we must stratify by age and sex in order to estimate $B \rightarrow V$. 
+
+The unobserved confounds connecting $A$ to $B$ and $V$ represent unknown cohort effects that mimic age but are unrelated to biological aging. These paths are problematic. If we stratify by age, then age becomes a collider on $B \longleftrightarrow A \longleftrightarrow V$. Therefore it is not possible to control for unknown cohort effects.
+
+The unobserved confound connecting $B$ and $V$ obviously causes problems. This could arise from factors like common family exposure that is unobserved but generates association between brain structure and vocal behavior across families. It is impossible to exclude the possibility of unobserved confounds, but it is possible to calculate how strong the confounds must be to remove any apparently causal effect of $B$ on $V$.
+
+In summary, while it is not possible in theory to eliminate all plausible confounding, it is possible to interpret estimates correctly as mixes of causal and confound effects. For example, if we are willing to assume that cohort effects and unobserved confounds between $B$ and $V$ are absent, then stratification by $A$ and $S$ is sufficient to estimate the causal influence of $B$ on $V$. Any estimated coefficient in such an analysis will likely be an upper bound, due to unobserved cohort or other confounds.
+
+\subsection{Missing data}
+
+When some data are missing, we must augment the causal model to simultaneously model to missingness mechanism. The cause of missing values tells us whether they are ignorable or rather how to impute them.
+
+Consider the example below, in which the previous causal diagram is augmented with missingness nodes $R$ that point into observed variables with stars $\star$ that indicate variables containing missing values. The corresponding variable without the $\star$ is unobserved (no missing values). 
+
+\begin{center}
+  \begin{tikzpicture}
+    % nodes %
+    \node[text centered] (a) {$A$};
+    \node[above right=1.2 of a, text centered] (b) {$B$};
+    \node[below right=1.2 of a, text centered] (v) {$V$};
+    \node[below right=1.2 of b, text centered] (s) {$S$};
+    \node[left=1.0 of b, text centered] (bo) {$B\star$};
+    \node[left=1.0 of bo, text centered] (Rb) {$R_B$};
+    \node[left=1.0 of v, text centered] (vo) {$V\star$};
+    \node[left=1.0 of vo, text centered] (Rv) {$R_V$};
+    % edges %
+    \draw[-Latex, line width= 1] (a) -- (v);
+    \draw[-Latex, line width= 1] (b) -- (v);
+    \draw[-Latex, line width= 1] (a) -- (b);
+    \draw[-Latex, line width= 1] (s) -- (b);
+    \draw[-Latex, line width= 1] (s) -- (v);
+    \path[Latex-Latex,dashed] (a) edge[bend left=30] (b);
+    \path[Latex-Latex,dashed] (a) edge[bend right=30] (v);
+    \path[Latex-Latex,dashed] (b) edge[bend left=25] (v);
+    \draw[-Latex, line width= 1] (Rb) -- (bo);
+    \draw[-Latex, line width= 1] (b) -- (bo);
+    \draw[-Latex, line width= 1] (a) -- (Rb);
+    \draw[-Latex, line width= 1] (v) -- (vo);
+    \draw[-Latex, line width= 1] (Rv) -- (vo);
+  \end{tikzpicture}
+  \end{center}
+
+Consider $V$ first. In this example, we observe only $V\star$, which is influenced by the true values $V$ and the missingness mechanism $R_V$. This is the most benign form of missing data, \emph{missing completely at random}. The association between $B$ and $V$ cannot be confounded by the missingness. It is only harder to measure. The causal model can be used to impute missing values, so that incomplete cases do not need to be dropped. But this is not strictly necessary for valid inference.
+
+Now consider instead $B$. In this case, the missingness mechanism $R_B$ is itself influenced by another variable, age ($A$). This is very plausible, since individuals of some ages are more likely to die and therefore contribute brain samples. In this case, there is a backdoor path through $A$ that confounds inference of $B \rightarrow V$. We must condition of $A$ to close that path, blocking the influence of $R_B$. 
+
+As explained before, if there are unobserved cohort effects (the dashed paths between $B$, $A$ and $V$) then conditioning on $A$ will introduce a new confound that cannot be adjusted for. But that situation is not new. It is not caused by the missing $B$ values.
+
+So what can we do? For each variable with missing values, we must state what influences missingness. If missingness is caused by an observed variable (like $A$), usually we can adjust for it and proceed as before. We can impute missing values as well, to retain as much efficiency in estimation as possible. 
+
+But if any pattern of missingness is caused by the variable itself, then we must model the missingness mechanism or otherwise give up. For example, in censored time-to-event data the values that are missing are missing exactly because of their value: the event happened after the sampling period ended. These missing values cannot be ignored. And no other observed variable can be conditioned on to resolve the problem. So instead we model the censoring process and use it to impute the missing values. That is indeed the standard justification for time-to-event analysis, where censored observations must be included in the analysis but modeled differently than observed values.
+
+\subsection{Reciprocal causation}
+
+An alternative causal model posits a feedback between brain structure and vocal behavior over time. In this case, any association between brain structure and vocal behavior cannot be interpreted as the influence of one on the other. Without a time series of brain and vocal measurements, it is not possible to do more. However, it is possible to specify a generative model, using for example ODEs, to express the hypothesis.
+
+\subsection{Vocal variables}
+
+The variables that stand for vocal behavior must be inferred from individual recordings. Individual chimpanzees are represented by different numbers of recordings. In many cases there are hundreds of recordings. But other individuals have only 1 recording. So ideally the vocal behavior is inferred from a separate set of latent factor equations. The resulting factor scores can be used as the outcome variable in the $B \rightarrow V$ model.
+
+The simplest, and canonical, approach is to simply construct the factor scores as varying intercepts clustered on each individual chimpanzee. Each recording can be scored for whatever feature $F$ is of interest. Then each feature is modeled as:
+\begin{align*}
+  F_i &\sim \text{Normal}(\mu_i,\sigma)\\
+  \mu_i &= \alpha_{\textsc{id}[i]}\\
+  \alpha_j &\sim \text{Normal}(\bar \alpha,\tau)
+\end{align*}
+The equation for $\alpha_i$ can be extended to include predictors for age, sex, or anything else. In that case:
+\begin{align*}
+  F_i &\sim \text{Normal}(\mu_i,\sigma)\\
+  \mu_i &= \alpha_{\textsc{id}[i]}\\
+  \alpha_j &= \bar \alpha + \gamma_{j} + ...\\
+  \gamma_j &\sim \text{Normal}(0,\tau)
+\end{align*}
+where the $...$ is a series of terms that stratify scores by demographic and other features.
+
+When there are multiple vocal features, they can be simultaneously modeled using a multivariate normal, if strong correlations among them are expected. In that case, each individual is assigned a vector $\mathbf a_j = [ \alpha_{j1} , \alpha_{j2} , ... , \alpha_{jn} ]$ for $n$ features and a covariance matrix models the structure among them.
+
+\section{Implementation}
+
+We implement a complete generative model, corresponding to the heuristic causal model, so that we can produce synthetic data that allows us to (1) clarify the hypothetical relationships among variables (through forward simulation) and (2) validate the statistical implementation (through inverse inference).
+
+\subsection{Functional relationships}
+
+For each variable, it is necessary to specify how the other variables influence it. In the simplest models, all relationships are additive. But this is not necessary and rarely biologically realistic.
+
+To motivate the analysis, we adopt simple non-linear relationships for brain structure and vocal behavior as functions of age, sex and brain (for vocal behavior). 
+
+For brain structure, suppose a logistic relationship with age, so that:
+\begin{align*}
+  B_i &= \mu_i/(1+\exp( -(\beta_{S[i]} (A_i-\alpha) + \epsilon_i ) ))\\
+  \epsilon_i &\sim \text{Normal}(0,\sigma)
+\end{align*}
+The $\beta$ parameters determine the rate of increase with age and $\alpha$ determines when the increase is maximized. The $\mu$ parameter is an individual-specific adult maximum. Obviously this cannot be estimated for young individuals. But a distribution could possibly be estimate for a population.
+
+For vocal behavior, suppose a Poisson sample with a rate determined by brain structure, age and sex:
+\begin{align*}
+  V_i &\sim \text{Poisson}(\lambda_i)\\
+  \lambda_i &=   B_i^{\gamma_{S[i]}}  A_i^\delta
+\end{align*}
+Here $\gamma$ is a parameter (unique to each sex) that determines the influence of brain structure on the rate of vocal behavior. The parameter $\delta$ governs the rate of diminishing returns with age. When $\delta<1$, the influence of age eventually goes flat. Age $A_i$ in this function is a kind of exposure variable, and $\delta$ and $\gamma$ are both effectively elasticities. AN economist will recognize the function for $\lambda_i$ as a Cobb-Douglas production function. It could also be expressed as a log-linear relationship, as is customary in GLMs:
+\begin{align*}
+  \log \lambda_i &=  \gamma_{S[i]} \log B_i + \delta \log A_i
+\end{align*}
+For real data, more thought needs to be given to how brain structure is measured and how it could theoretically influence behavior.
+
+Finally, age and sex are given simple distributions:
+\begin{align*}
+  A_i &\sim \text{Uniform}(1,20)\\
+  S_i &\sim \text{Categorical}(\phi) \quad \text{for $S_i \in \{1,2\}$}
+\end{align*}
+The minimum age of 1 and maximum of 20 are arbitrary. 
+
+Code for simulating from this generative model is provided.
+
+\subsection{Statistical inference}
+
+The generative model above can be specified directly as a statistical model. Any probabilistic programming language is sufficient. We use Stan (mc-stan.org), because of its flexibility and availability in all scripting languages.
+
+Bayesian imputation of missing values is straightforward for continuous variables. For discrete variables, like a Poisson count, the code will need to marginalize over unknowns. Such code can be slow, but given that the sample size is rather small, this is not an obstacle yet.
+
+\section{Validation}
+
+x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\bibliographystyle{apalike} 
+\bibliography{references}
+
+\end{document}
+
+
+
+
+
+
+
+
